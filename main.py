@@ -112,6 +112,8 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     error: str | None = None
+    tf_version: str | None = None
+    keras_version: str | None = None
 
 
 # ============================================================
@@ -135,6 +137,9 @@ async def lifespan(app: FastAPI):
     print("=" * 60)
     print("STARTING EMOTION CLASSIFICATION API")
     print("=" * 60)
+
+    print("TensorFlow version:", tf.__version__)
+    print("Keras version:", tf.keras.__version__)
 
     print("Base directory:", BASE_DIR)
     print("Model path:", model_path)
@@ -275,7 +280,9 @@ def health_check():
             else "Model loading failed"
         ),
         model_loaded=is_loaded,
-        error=None if is_loaded else model_error
+        error=None if is_loaded else model_error,
+        tf_version=tf.__version__,
+        keras_version=tf.keras.__version__,
     )
 
 
