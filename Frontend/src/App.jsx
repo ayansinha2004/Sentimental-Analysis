@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
+// Sanitize the URL to enforce https:// and remove trailing slashes
 const rawUrl = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim();
 const API_BASE = rawUrl.startsWith("http")
   ? rawUrl.replace(/\/+$/, "")
   : `https://${rawUrl.replace(/^\/+|\/+$/g, "")}`;
-  
+
 const EMOTION_META = {
   sadness: { emoji: "😢", color: "var(--sadness)", label: "Sadness" },
   joy: { emoji: "😄", color: "var(--joy)", label: "Joy" },
@@ -20,24 +21,47 @@ function StatusPill() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE}/health`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setStatus(data.model_loaded ? "ready" : "loading");
-      })
-      .catch(() => {
-        if (!cancelled) setStatus("offline");
-      });
+    let timerId = null;
+
+    const checkHealth = async () => {
+      console.log("[StatusPill] Attempting health check request to:", `${API_BASE}/health`);
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        console.log("[StatusPill] Response status code:", res.status);
+
+        if (!res.ok) {
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("[StatusPill] Health data received:", data);
+
+        if (!cancelled) {
+          setStatus(data.model_loaded ? "ready" : "loading");
+        }
+      } catch (err) {
+        console.error("[StatusPill] Health check failed:", err);
+        if (!cancelled) {
+          setStatus("offline");
+          // Poll every 5s to wake up free-tier instances automatically
+          timerId = setTimeout(checkHealth, 5000);
+        }
+      }
+    };
+
+    checkHealth();
+
     return () => {
       cancelled = true;
+      if (timerId) clearTimeout(timerId);
     };
   }, []);
 
   const labels = {
-    checking: "checking",
+    checking: "checking...",
     ready: "model ready",
-    loading: "model loading",
-    offline: "server offline",
+    loading: "model loading...",
+    offline: "waking server...",
   };
 
   return (
@@ -54,7 +78,7 @@ function ResultBars({ probabilities, topEmotion }) {
   return (
     <div className="bars">
       {sorted.map(([emotion, prob], i) => {
-        const meta = EMOTION_META[emotion];
+        const meta = EMOTION_META[emotion] || { emoji: "❓", color: "#888", label: emotion };
         const isTop = emotion === topEmotion;
         return (
           <div className="bar-row" key={emotion}>
@@ -96,6 +120,7 @@ export default function App() {
     setError(null);
 
     try {
+      console.log("[Predict] Sending text payload to:", `${API_BASE}/predict`);
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,21 +128,19 @@ export default function App() {
       });
 
       if (res.status === 503) {
-        throw new Error(
-          "The model hasn't finished loading yet. Wait a moment and try again."
-        );
+        throw new Error("The model hasn't finished loading yet. Wait a moment and try again.");
       }
       if (!res.ok) {
         throw new Error("The analyzer rejected that request. Try a shorter sentence.");
       }
 
       const data = await res.json();
+      console.log("[Predict] Analysis result:", data);
       setResult(data);
     } catch (err) {
+      console.error("[Predict] Error encountered:", err);
       if (err instanceof TypeError) {
-        setError(
-          "Couldn't reach the analyzer. Is the FastAPI server running on port 8000?"
-        );
+        setError("Couldn't reach the analyzer. Is the backend server running?");
       } else {
         setError(err.message);
       }

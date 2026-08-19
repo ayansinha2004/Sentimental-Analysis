@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     yield
     dl_model.clear()
 
-# 5. App Setup & Fixed CORS Setup
+# 5. App Setup & CORS
 app = FastAPI(
     title="Emotion Classification API",
     lifespan=lifespan
