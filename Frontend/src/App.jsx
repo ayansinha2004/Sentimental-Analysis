@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-// Sanitize the URL to enforce https:// and remove trailing slashes
-const rawUrl = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim();
+// 1. Robust URL Normalization (Strips Markdown & double http prefixes)
+let rawUrl = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim();
+rawUrl = rawUrl.replace(/\[|\]|\(|\)/g, ""); // Remove stray markdown brackets
+if (rawUrl.includes("http")) {
+  const matches = rawUrl.match(/https?:\/\/[^\s]+/g);
+  if (matches) rawUrl = matches[0];
+}
 const API_BASE = rawUrl.startsWith("http")
   ? rawUrl.replace(/\/+$/, "")
   : `https://${rawUrl.replace(/^\/+|\/+$/g, "")}`;
@@ -24,27 +29,17 @@ function StatusPill() {
     let timerId = null;
 
     const checkHealth = async () => {
-      console.log("[StatusPill] Attempting health check request to:", `${API_BASE}/health`);
+      console.log("[StatusPill] Fetching:", `${API_BASE}/health`);
       try {
         const res = await fetch(`${API_BASE}/health`);
-        console.log("[StatusPill] Response status code:", res.status);
-
-        if (!res.ok) {
-          throw new Error(`HTTP Error: ${res.status}`);
-        }
-
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const data = await res.json();
-        console.log("[StatusPill] Health data received:", data);
-
-        if (!cancelled) {
-          setStatus(data.model_loaded ? "ready" : "loading");
-        }
+        if (!cancelled) setStatus(data.model_loaded ? "ready" : "loading");
       } catch (err) {
-        console.error("[StatusPill] Health check failed:", err);
+        console.error("[StatusPill] Failed:", err);
         if (!cancelled) {
           setStatus("offline");
-          // Poll every 5s to wake up free-tier instances automatically
-          timerId = setTimeout(checkHealth, 5000);
+          timerId = setTimeout(checkHealth, 5000); 
         }
       }
     };
@@ -110,9 +105,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const panelRef = useRef(null);
 
-  const accentColor = result
-    ? EMOTION_META[result.predicted_emotion]?.color
-    : null;
+  const accentColor = result ? EMOTION_META[result.predicted_emotion]?.color : null;
 
   const handleAnalyze = async () => {
     if (!text.trim() || isLoading) return;
@@ -120,7 +113,6 @@ export default function App() {
     setError(null);
 
     try {
-      console.log("[Predict] Sending text payload to:", `${API_BASE}/predict`);
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,22 +120,16 @@ export default function App() {
       });
 
       if (res.status === 503) {
-        throw new Error("The model hasn't finished loading yet. Wait a moment and try again.");
+        throw new Error("Model is still loading on the server. Please wait...");
       }
       if (!res.ok) {
-        throw new Error("The analyzer rejected that request. Try a shorter sentence.");
+        throw new Error("Request failed. Try a shorter sentence.");
       }
 
       const data = await res.json();
-      console.log("[Predict] Analysis result:", data);
       setResult(data);
     } catch (err) {
-      console.error("[Predict] Error encountered:", err);
-      if (err instanceof TypeError) {
-        setError("Couldn't reach the analyzer. Is the backend server running?");
-      } else {
-        setError(err.message);
-      }
+      setError(err instanceof TypeError ? "Network error. Check connection or ad blocker." : err.message);
       setResult(null);
     } finally {
       setIsLoading(false);
@@ -157,10 +143,7 @@ export default function App() {
   };
 
   return (
-    <div
-      className="app"
-      style={accentColor ? { "--accent": accentColor } : undefined}
-    >
+    <div className="app" style={accentColor ? { "--accent": accentColor } : undefined}>
       <header className="header">
         <span className="eyebrow">emotion analyzer</span>
         <StatusPill />
@@ -171,9 +154,7 @@ export default function App() {
           How are you <em>really</em> feeling?
         </h1>
         <p className="subtext">
-          Type a sentence. A bidirectional GRU trained on six emotions reads
-          it back — case-folded, stripped of punctuation, run through the
-          same pipeline it was trained on.
+          Type a sentence. A bidirectional GRU trained on six emotions reads it back.
         </p>
 
         <div className="console">

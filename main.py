@@ -3,20 +3,27 @@ import pickle
 import re
 from contextlib import asynccontextmanager
 
+# 1. Optimize TensorFlow memory & threading for free-tier hosting (512MB RAM limit)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import numpy as np
+import tensorflow as tf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from keras.models import load_model
 from pydantic import BaseModel, Field
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-# 1. Constants
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
+
+# 2. Path Configurations
 model_path = os.getenv("MODEL_PATH", "Artifacts/bi_gru_model.h5")
-tokenizer_path = os.getenv("TOKENIZER_PATH", "Artifacts/tokenizer (1).pkl")
+tokenizer_path = os.getenv("TOKENIZER_PATH", "Artifacts/tokenizer.pkl")
 max_sequence_length = 50
 
 emotion_labels = ["sadness", "joy", "love", "anger", "fear", "surprise"]
-
 EMOTION_EMOJIS = {
     "sadness": "😢",
     "joy": "😄",
@@ -26,7 +33,7 @@ EMOTION_EMOJIS = {
     "surprise": "😲",
 }
 
-# 2. Text Preprocessing
+# 3. Preprocessing Helper
 def preprocess_text(text: str) -> str:
     text = text.lower()
     text = re.sub(r"'", "", text)
@@ -34,15 +41,9 @@ def preprocess_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-# 3. Schemas
+# 4. Schemas
 class TextInput(BaseModel):
-    text: str = Field(
-        ...,
-        min_length=1,
-        max_length=2000,
-        description="The sentence to analyze",
-        json_schema_extra={"example": "I feel so happy and excited"}
-    )
+    text: str = Field(..., min_length=1, max_length=2000)
 
 class PredictionResponse(BaseModel):
     text: str
@@ -55,30 +56,25 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
 
-# 4. Model Loading Strategy
+# 5. Model Lifecycle State
 dl_model = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Loading the model and tokenizer...")
+    print("Loading model and tokenizer...")
     try:
         dl_model["BiGRU"] = load_model(model_path)
         with open(tokenizer_path, "rb") as file:
             dl_model["Tokenizer"] = pickle.load(file)
-        print("Model and tokenizer loaded successfully...")
+        print("Model artifacts loaded successfully.")
     except Exception as e:
         print(f"Error loading model artifacts: {e}")
-
     yield
     dl_model.clear()
 
-# 5. App Setup & CORS
-app = FastAPI(
-    title="Emotion Classification API",
-    lifespan=lifespan
-)
+app = FastAPI(title="Emotion Classification API", lifespan=lifespan)
 
-# Open CORS configuration (allow_credentials=False permits wildcard "*")
+# 6. Unrestricted CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -87,15 +83,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 6. Endpoints
+# 7. Endpoints
 @app.get("/")
 def root():
-    return {
-        "message": "Emotion Classification API is running.",
-        "docs": "/docs",
-        "health": "/health",
-        "predict": "/predict (POST)"
-    }
+    return {"message": "API Running", "health": "/health", "predict": "/predict"}
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
@@ -113,16 +104,13 @@ def predict_emotion(text_input: TextInput):
     if BiGRU_model is None or tokenizer_model is None:
         raise HTTPException(
             status_code=503,
-            detail="Model is not loaded yet. Please try again later."
+            detail="Model is not loaded yet. Please wait a moment."
         )
 
     cleaned_text = preprocess_text(text_input.text)
     tokenized_text = tokenizer_model.texts_to_sequences([cleaned_text])
     padded_sequence = pad_sequences(
-        tokenized_text,
-        maxlen=max_sequence_length,
-        padding="post",
-        truncating="post"
+        tokenized_text, maxlen=max_sequence_length, padding="post", truncating="post"
     )
 
     probabilities = BiGRU_model.predict(padded_sequence)[0]
