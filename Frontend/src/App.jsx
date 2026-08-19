@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-// ✅ New: Automatically strips trailing slashes and ensures https:// protocol
-const rawApiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-const API_BASE = rawApiUrl.startsWith("http") 
-  ? rawApiUrl.replace(/\/+$/, "") 
-  : `https://${rawApiUrl.replace(/\/+$/, "")}`;
+const rawUrl = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim();
+const API_BASE = rawUrl.startsWith("http")
+  ? rawUrl.replace(/\/+$/, "")
+  : `https://${rawUrl.replace(/^\/+|\/+$/g, "")}`;
+  
 const EMOTION_META = {
   sadness: { emoji: "😢", color: "var(--sadness)", label: "Sadness" },
   joy: { emoji: "😄", color: "var(--joy)", label: "Joy" },
