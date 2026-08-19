@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+// ✅ New: Automatically strips trailing slashes and ensures https:// protocol
+const rawApiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE = rawApiUrl.startsWith("http") 
+  ? rawApiUrl.replace(/\/+$/, "") 
+  : `https://${rawApiUrl.replace(/\/+$/, "")}`;
 const EMOTION_META = {
   sadness: { emoji: "😢", color: "var(--sadness)", label: "Sadness" },
   joy: { emoji: "😄", color: "var(--joy)", label: "Joy" },
