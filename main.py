@@ -18,16 +18,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# IMPORTANT:
-# Use TensorFlow Keras consistently
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-
 
 # Limit TensorFlow threads for low-memory hosting
 tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.config.threading.set_intra_op_parallelism_threads(1)
-
 
 # ============================================================
 # Paths
@@ -51,7 +47,6 @@ tokenizer_path = Path(
 
 max_sequence_length = 50
 
-
 # ============================================================
 # Emotion configuration
 # ============================================================
@@ -74,7 +69,6 @@ EMOTION_EMOJIS = {
     "surprise": "😲",
 }
 
-
 # ============================================================
 # Text preprocessing
 # ============================================================
@@ -84,20 +78,14 @@ def preprocess_text(text: str) -> str:
     text = re.sub(r"'", "", text)
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-
     return text
-
 
 # ============================================================
 # Pydantic schemas
 # ============================================================
 
 class TextInput(BaseModel):
-    text: str = Field(
-        ...,
-        min_length=1,
-        max_length=2000
-    )
+    text: str = Field(..., min_length=1, max_length=2000)
 
 
 class PredictionResponse(BaseModel):
@@ -115,15 +103,12 @@ class HealthResponse(BaseModel):
     tf_version: str | None = None
     keras_version: str | None = None
 
-
 # ============================================================
 # Model state
 # ============================================================
 
 dl_model = {}
-
 model_error = None
-
 
 # ============================================================
 # Application lifespan
@@ -131,7 +116,6 @@ model_error = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
     global model_error
 
     print("=" * 60)
@@ -144,33 +128,19 @@ async def lifespan(app: FastAPI):
     print("Base directory:", BASE_DIR)
     print("Model path:", model_path)
     print("Tokenizer path:", tokenizer_path)
-
     print("Model exists:", model_path.exists())
     print("Tokenizer exists:", tokenizer_path.exists())
 
     try:
-
-        # ----------------------------------------------------
-        # Check model file
-        # ----------------------------------------------------
-
         if not model_path.exists():
             raise FileNotFoundError(
                 f"Model file not found: {model_path}"
             )
 
-        # ----------------------------------------------------
-        # Check tokenizer file
-        # ----------------------------------------------------
-
         if not tokenizer_path.exists():
             raise FileNotFoundError(
                 f"Tokenizer file not found: {tokenizer_path}"
             )
-
-        # ----------------------------------------------------
-        # Load model
-        # ----------------------------------------------------
 
         print("Loading BiGRU model...")
 
@@ -180,10 +150,8 @@ async def lifespan(app: FastAPI):
         )
 
         print("BiGRU model loaded successfully.")
-
-        # ----------------------------------------------------
-        # Load tokenizer
-        # ----------------------------------------------------
+        print("Model input shape:", dl_model["BiGRU"].input_shape)
+        print("Model output shape:", dl_model["BiGRU"].output_shape)
 
         print("Loading tokenizer...")
 
@@ -200,25 +168,20 @@ async def lifespan(app: FastAPI):
         print("=" * 60)
 
     except Exception as e:
-
         model_error = repr(e)
 
         print("=" * 60)
         print("MODEL LOADING FAILED")
         print("=" * 60)
-
         print("ERROR:")
         print(repr(e))
-
         print("=" * 60)
 
         dl_model.clear()
 
     yield
 
-    # Cleanup
     dl_model.clear()
-
 
 # ============================================================
 # FastAPI application
@@ -228,7 +191,6 @@ app = FastAPI(
     title="Emotion Classification API",
     lifespan=lifespan
 )
-
 
 # ============================================================
 # CORS
@@ -242,96 +204,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # ============================================================
 # Root endpoint
 # ============================================================
 
 @app.get("/")
 def root():
-
     return {
         "message": "Emotion Classification API Running",
         "health": "/health",
         "predict": "/predict"
     }
 
-
 # ============================================================
 # Health endpoint
 # ============================================================
 
-@app.get(
-    "/health",
-    response_model=HealthResponse
-)
+@app.get("/health", response_model=HealthResponse)
 def health_check():
-
     is_loaded = (
         "BiGRU" in dl_model
-        and
-        "Tokenizer" in dl_model
+        and "Tokenizer" in dl_model
     )
 
     return HealthResponse(
-        status=(
-            "Server is running"
-            if is_loaded
-            else "Model loading failed"
-        ),
+        status="Server is running" if is_loaded else "Model loading failed",
         model_loaded=is_loaded,
         error=None if is_loaded else model_error,
         tf_version=tf.__version__,
         keras_version=tf.keras.__version__,
     )
 
-
 # ============================================================
 # Prediction endpoint
 # ============================================================
 
-@app.post(
-    "/predict",
-    response_model=PredictionResponse
-)
+@app.post("/predict", response_model=PredictionResponse)
 def predict_emotion(text_input: TextInput):
-
     BiGRU_model = dl_model.get("BiGRU")
     tokenizer_model = dl_model.get("Tokenizer")
 
-    # --------------------------------------------------------
-    # Check model
-    # --------------------------------------------------------
-
     if BiGRU_model is None or tokenizer_model is None:
-
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Model is not loaded. "
-                "Check the /health endpoint."
-            )
+            detail="Model is not loaded. Check the /health endpoint."
         )
 
-    # --------------------------------------------------------
-    # Preprocess
-    # --------------------------------------------------------
-
-    cleaned_text = preprocess_text(
-        text_input.text
-    )
-
-    # --------------------------------------------------------
-    # Tokenization
-    # --------------------------------------------------------
+    cleaned_text = preprocess_text(text_input.text)
 
     tokenized_text = tokenizer_model.texts_to_sequences(
         [cleaned_text]
     )
-
-    # --------------------------------------------------------
-    # Padding
-    # --------------------------------------------------------
 
     padded_sequence = pad_sequences(
         tokenized_text,
@@ -340,30 +263,13 @@ def predict_emotion(text_input: TextInput):
         truncating="post"
     )
 
-    # --------------------------------------------------------
-    # Prediction
-    # --------------------------------------------------------
-
     probabilities = BiGRU_model.predict(
         padded_sequence,
         verbose=0
     )[0]
 
-    # --------------------------------------------------------
-    # Top emotion
-    # --------------------------------------------------------
-
-    top_emotion_index = int(
-        np.argmax(probabilities)
-    )
-
-    top_emotion = emotion_labels[
-        top_emotion_index
-    ]
-
-    # --------------------------------------------------------
-    # All probabilities
-    # --------------------------------------------------------
+    top_emotion_index = int(np.argmax(probabilities))
+    top_emotion = emotion_labels[top_emotion_index]
 
     all_probabilities = {
         label: float(prob)
@@ -373,23 +279,12 @@ def predict_emotion(text_input: TextInput):
         )
     }
 
-    # --------------------------------------------------------
-    # Response
-    # --------------------------------------------------------
-
     return PredictionResponse(
         text=text_input.text,
-
         predicted_emotion=top_emotion,
-
-        emoji=EMOTION_EMOJIS.get(
-            top_emotion,
-            ""
-        ),
-
+        emoji=EMOTION_EMOJIS.get(top_emotion, ""),
         confidence=float(
             probabilities[top_emotion_index]
         ),
-
         all_probabilities=all_probabilities
     )

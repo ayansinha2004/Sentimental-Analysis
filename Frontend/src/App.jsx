@@ -1,16 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-// 1. Robust URL Normalization (Strips Markdown & double http prefixes)
-let rawUrl = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").trim();
-rawUrl = rawUrl.replace(/\[|\]|\(|\)/g, ""); // Remove stray markdown brackets
-if (rawUrl.includes("http")) {
-  const matches = rawUrl.match(/https?:\/\/[^\s]+/g);
-  if (matches) rawUrl = matches[0];
-}
-const API_BASE = rawUrl.startsWith("http")
-  ? rawUrl.replace(/\/+$/, "")
-  : `https://${rawUrl.replace(/^\/+|\/+$/g, "")}`;
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
 
 const EMOTION_META = {
   sadness: { emoji: "😢", color: "var(--sadness)", label: "Sadness" },
@@ -30,16 +24,29 @@ function StatusPill() {
 
     const checkHealth = async () => {
       console.log("[StatusPill] Fetching:", `${API_BASE}/health`);
+
       try {
         const res = await fetch(`${API_BASE}/health`);
-        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+
         const data = await res.json();
-        if (!cancelled) setStatus(data.model_loaded ? "ready" : "loading");
+
+        if (!cancelled) {
+          setStatus(data.model_loaded ? "ready" : "loading");
+
+          if (!data.model_loaded) {
+            timerId = setTimeout(checkHealth, 5000);
+          }
+        }
       } catch (err) {
         console.error("[StatusPill] Failed:", err);
+
         if (!cancelled) {
           setStatus("offline");
-          timerId = setTimeout(checkHealth, 5000); 
+          timerId = setTimeout(checkHealth, 5000);
         }
       }
     };
@@ -48,7 +55,10 @@ function StatusPill() {
 
     return () => {
       cancelled = true;
-      if (timerId) clearTimeout(timerId);
+
+      if (timerId) {
+        clearTimeout(timerId);
+      }
     };
   }, []);
 
@@ -68,18 +78,27 @@ function StatusPill() {
 }
 
 function ResultBars({ probabilities, topEmotion }) {
-  const sorted = Object.entries(probabilities).sort((a, b) => b[1] - a[1]);
+  const sorted = Object.entries(probabilities).sort(
+    (a, b) => b[1] - a[1]
+  );
 
   return (
     <div className="bars">
       {sorted.map(([emotion, prob], i) => {
-        const meta = EMOTION_META[emotion] || { emoji: "❓", color: "#888", label: emotion };
+        const meta = EMOTION_META[emotion] || {
+          emoji: "❓",
+          color: "#888",
+          label: emotion,
+        };
+
         const isTop = emotion === topEmotion;
+
         return (
           <div className="bar-row" key={emotion}>
             <span className="bar-label">
               {meta.emoji} {meta.label}
             </span>
+
             <div className="bar-track">
               <div
                 className={`bar-fill ${isTop ? "bar-fill-top" : ""}`}
@@ -90,7 +109,10 @@ function ResultBars({ probabilities, topEmotion }) {
                 }}
               />
             </div>
-            <span className="bar-value">{(prob * 100).toFixed(1)}%</span>
+
+            <span className="bar-value">
+              {(prob * 100).toFixed(1)}%
+            </span>
           </div>
         );
       })}
@@ -103,33 +125,52 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
   const panelRef = useRef(null);
 
-  const accentColor = result ? EMOTION_META[result.predicted_emotion]?.color : null;
+  const accentColor = result
+    ? EMOTION_META[result.predicted_emotion]?.color
+    : null;
 
   const handleAnalyze = async () => {
     if (!text.trim() || isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+        }),
       });
 
       if (res.status === 503) {
-        throw new Error("Model is still loading on the server. Please wait...");
+        throw new Error(
+          "Model is still loading on the server. Please wait..."
+        );
       }
+
       if (!res.ok) {
-        throw new Error("Request failed. Try a shorter sentence.");
+        throw new Error(
+          "Request failed. Try a shorter sentence."
+        );
       }
 
       const data = await res.json();
+
       setResult(data);
     } catch (err) {
-      setError(err instanceof TypeError ? "Network error. Check connection or ad blocker." : err.message);
+      setError(
+        err instanceof TypeError
+          ? "Network error. Check connection or ad blocker."
+          : err.message
+      );
+
       setResult(null);
     } finally {
       setIsLoading(false);
@@ -143,9 +184,19 @@ export default function App() {
   };
 
   return (
-    <div className="app" style={accentColor ? { "--accent": accentColor } : undefined}>
+    <div
+      className="app"
+      style={
+        accentColor
+          ? { "--accent": accentColor }
+          : undefined
+      }
+    >
       <header className="header">
-        <span className="eyebrow">emotion analyzer</span>
+        <span className="eyebrow">
+          emotion analyzer
+        </span>
+
         <StatusPill />
       </header>
 
@@ -153,8 +204,10 @@ export default function App() {
         <h1 className="headline">
           How are you <em>really</em> feeling?
         </h1>
+
         <p className="subtext">
-          Type a sentence. A bidirectional GRU trained on six emotions reads it back.
+          Type a sentence. A bidirectional GRU trained on six
+          emotions reads it back.
         </p>
 
         <div className="console">
@@ -167,8 +220,12 @@ export default function App() {
             maxLength={2000}
             rows={4}
           />
+
           <div className="console-footer">
-            <span className="char-count">{text.length} / 2000</span>
+            <span className="char-count">
+              {text.length} / 2000
+            </span>
+
             <button
               className="analyze-btn"
               onClick={handleAnalyze}
@@ -179,20 +236,34 @@ export default function App() {
           </div>
         </div>
 
-        {error && <div className="error-box">{error}</div>}
+        {error && (
+          <div className="error-box">
+            {error}
+          </div>
+        )}
 
         {result && (
-          <section className="results" ref={panelRef}>
+          <section
+            className="results"
+            ref={panelRef}
+          >
             <div className="top-result">
               <span className="top-emoji">
-                {EMOTION_META[result.predicted_emotion]?.emoji}
+                {EMOTION_META[
+                  result.predicted_emotion
+                ]?.emoji}
               </span>
+
               <div>
                 <div className="top-label">
-                  {EMOTION_META[result.predicted_emotion]?.label}
+                  {EMOTION_META[
+                    result.predicted_emotion
+                  ]?.label}
                 </div>
+
                 <div className="top-confidence">
-                  {(result.confidence * 100).toFixed(1)}% confidence
+                  {(result.confidence * 100).toFixed(1)}%
+                  {" "}confidence
                 </div>
               </div>
             </div>
@@ -205,7 +276,9 @@ export default function App() {
         )}
       </main>
 
-      <footer className="footer">BiGRU · FastAPI · six-way emotion classification</footer>
+      <footer className="footer">
+        BiGRU · FastAPI · six-way emotion classification
+      </footer>
     </div>
   );
 }
