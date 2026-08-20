@@ -1,0 +1,348 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --ink: #17171b;
+  --ink-soft: #202027;
+  --paper: #f4efe6;
+  --paper-dim: #e7e0d2;
+  --line: rgba(244, 239, 230, 0.12);
+  --text-muted: rgba(244, 239, 230, 0.56);
+  --sadness: #5b7fb4;
+  --joy: #e8a33d;
+  --love: #c4547a;
+  --anger: #c0392b;
+  --fear: #7c5ea3;
+  --surprise: #3fa796;
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  padding: 2.5rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: radial-gradient(circle at 1px 1px, #fff 1px, transparent 0);
+  background-size: 3px 3px;
+  z-index: 0;
+}
+
+.app-header,
+.panel,
+.app-footer {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 640px;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.brand h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 2.1rem;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Status pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.status-up .status-dot {
+  background: var(--surprise);
+  box-shadow: 0 0 0 0 rgba(63, 167, 150, 0.6);
+  animation: pulse 2s infinite;
+}
+
+.status-down .status-dot {
+  background: var(--anger);
+}
+
+.status-checking .status-dot {
+  background: var(--joy);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 167, 150, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(63, 167, 150, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 167, 150, 0);
+  }
+}
+
+/* Panel shell */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+/* Input panel */
+.input-panel {
+  background: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.input-panel textarea {
+  width: 100%;
+  resize: vertical;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.input-panel textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.char-count {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.submit-btn {
+  background: var(--paper);
+  color: var(--ink);
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.3rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Error */
+.error-banner {
+  background: rgba(192, 57, 43, 0.12);
+  border: 1px solid rgba(192, 57, 43, 0.4);
+  color: #f0b7b0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+}
+
+/* Result panel */
+.result-panel {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 1.5rem;
+  min-height: 220px;
+}
+
+.result-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 170px;
+}
+
+.result-empty p {
+  color: rgba(23, 23, 27, 0.5);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.result-headline {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-emoji {
+  font-size: 2.75rem;
+  line-height: 1;
+}
+
+.result-headline h2 {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  margin: 0.1rem 0 0.15rem;
+}
+
+.confidence {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: rgba(23, 23, 27, 0.55);
+  margin: 0;
+}
+
+/* Spectrum — signature element */
+.spectrum-bar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper-dim);
+  margin-bottom: 1rem;
+}
+
+.spectrum-segment {
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0.55;
+}
+
+.spectrum-segment.is-dominant {
+  opacity: 1;
+}
+
+.spectrum-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1.25rem;
+}
+
+.spectrum-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(23, 23, 27, 0.6);
+}
+
+.spectrum-legend li.is-dominant {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.legend-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  flex: 1;
+}
+
+.legend-value {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+/* Footer */
+.app-footer {
+  margin-top: 2.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  .brand h1 {
+    font-size: 1.6rem;
+  }
+  .spectrum-legend {
+    grid-template-columns: 1fr;
+  }
+}
